@@ -248,7 +248,7 @@ def get_groq():
 
 @st.cache_resource
 def get_embedder():
-    return SentenceTransformer("all-MiniLM-L6-v2")
+    return SentenceTransformer("all-MiniLM-L6-v2", device="cpu")
 
 
 @st.cache_data(show_spinner=False)
@@ -262,7 +262,7 @@ def fetch_image(url):
 
 
 @st.cache_data(show_spinner="Loading photos from Pexels...")
-def load_pexels_library(api_key, query, count=40):
+def load_pexels_library(api_key, query, embedder, count=40):
     headers = {"Authorization": api_key}
     params = {"query": query, "per_page": min(count, 80), "orientation": "landscape"}
     try:
@@ -298,7 +298,7 @@ def load_pexels_library(api_key, query, count=40):
             },
         })
 
-    embedder = get_embedder()
+    
     texts = [p["metadata"]["description"] for p in library]
     vecs = embedder.encode(texts, normalize_embeddings=True)
     return library, vecs, None
@@ -550,7 +550,7 @@ def main():
             theme = st.text_input("Theme to load:", value="beach sunset")
             if st.button("Load Library", use_container_width=True, type="primary"):
                 with st.spinner(f"Fetching '{theme}'..."):
-                    lib, vecs, err = load_pexels_library(pexels_key, theme)
+                    lib, vecs, err = load_pexels_library(pexels_key, theme, get_embedder())
                     if err:
                         st.error(err)
                     elif lib:
