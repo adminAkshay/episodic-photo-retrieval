@@ -671,7 +671,9 @@ def main():
     user_query = pending or chat_prompt
 
     if user_query:
-        st.session_state.messages.append({"role": "user", "content": user_query})
+         # Reset — only show current search, results appear at top
+    st.session_state.messages = []
+    st.session_state.messages.append({"role": "user", "content": user_query})
 
         with st.spinner("Searching..."):
             history_ctx = "\n".join(
