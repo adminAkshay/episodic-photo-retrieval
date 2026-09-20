@@ -24,15 +24,12 @@ st.set_page_config(
 # ============================================================
 st.markdown("""
 <style>
-    /* Hide Streamlit chrome */
     #MainMenu, header, footer, [data-testid="stToolbar"] {visibility: hidden;}
     [data-testid="stDecoration"] {display: none;}
     section[data-testid="stSidebar"] {display: none;}
 
-    /* Dark surround */
     .stApp { background-color: #0f0f0f; }
 
-    /* Phone frame */
     .main .block-container {
         max-width: 420px !important;
         padding: 0 !important;
@@ -45,10 +42,8 @@ st.markdown("""
             0 0 0 12px #2c2c2e;
         overflow: hidden;
         min-height: 860px;
-        position: relative;
     }
 
-    /* App bar */
     .gp-appbar {
         background: #ffffff;
         padding: 18px 20px 6px 20px;
@@ -65,25 +60,6 @@ st.markdown("""
     }
     .gp-appbar-logo { width: 24px; height: 24px; flex-shrink: 0; }
 
-    /* Top search bar (gallery view) */
-    .stTextInput { padding: 12px 16px 4px 16px; }
-    .stTextInput > div > div > input {
-        background: #f1f3f4 !important;
-        border: none !important;
-        border-radius: 24px !important;
-        padding: 12px 18px 12px 44px !important;
-        font-size: 14px !important;
-        font-family: 'Google Sans', 'Roboto', sans-serif !important;
-        color: #202124 !important;
-        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='18' height='18' viewBox='0 0 24 24' fill='%235f6368'%3E%3Cpath d='M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z'/%3E%3C/svg%3E") !important;
-        background-repeat: no-repeat !important;
-        background-position: 16px center !important;
-    }
-    .stTextInput > div > div > input::placeholder {
-        color: #5f6368 !important;
-    }
-
-    /* Section headers */
     .gp-section {
         padding: 10px 16px 6px 16px;
         font-family: 'Google Sans', 'Roboto', sans-serif;
@@ -100,14 +76,13 @@ st.markdown("""
         margin: 2px 0 0 0;
     }
 
-    /* Grid images */
     [data-testid="stImage"] img {
         border-radius: 6px !important;
         transition: transform 0.15s ease;
     }
     [data-testid="stImage"] img:hover { transform: scale(1.03); }
 
-    /* Small "More like this" button */
+    /* Small buttons — "More like this" */
     .stButton > button {
         background: transparent;
         border: none;
@@ -124,7 +99,7 @@ st.markdown("""
         text-decoration: underline;
     }
 
-    /* Secondary buttons (Back, sample prompts) */
+    /* Secondary buttons — samples and back */
     .stButton > button[kind="secondary"] {
         background: #f1f3f4;
         border: none;
@@ -142,9 +117,7 @@ st.markdown("""
         text-decoration: none;
     }
 
-    /* ==================================================== */
-    /* CHAT INPUT — BOTTOM BAR — TEXT IN BLACK (FIX)        */
-    /* ==================================================== */
+    /* Chat input — BLACK TEXT */
     [data-testid="stChatInput"] {
         background: #ffffff;
         border-top: 1px solid #f0f0f0;
@@ -157,8 +130,8 @@ st.markdown("""
         border-radius: 24px !important;
         font-size: 13px !important;
         font-family: 'Google Sans', 'Roboto', sans-serif !important;
-        color: #202124 !important;          /* ← BLACK TEXT */
-        -webkit-text-fill-color: #202124 !important;  /* ← Fix for some browsers */
+        color: #202124 !important;
+        -webkit-text-fill-color: #202124 !important;
         caret-color: #1a73e8 !important;
         padding: 12px 16px !important;
     }
@@ -169,29 +142,18 @@ st.markdown("""
         opacity: 1 !important;
     }
 
-    /* ==================================================== */
-    /* CHAT MESSAGES — CONVERSATION BUBBLES                */
-    /* ==================================================== */
+    /* Chat message bubbles */
     [data-testid="stChatMessage"] {
-        background: #ffffff;
+        background: #f8f9fa;
         border-radius: 16px;
         padding: 12px 16px !important;
         margin: 6px 12px !important;
         font-family: 'Google Sans', 'Roboto', sans-serif;
         font-size: 13px;
-        color: #202124;
     }
-
-    /* User bubble — light blue */
     [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) {
         background: #e8f0fe;
     }
-
-    /* Assistant bubble — light grey */
-    [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) {
-        background: #f8f9fa;
-    }
-
     [data-testid="stChatMessage"] p {
         font-size: 13px;
         color: #202124 !important;
@@ -199,7 +161,6 @@ st.markdown("""
         line-height: 1.45;
     }
 
-    /* Metadata under photos */
     .photo-meta {
         font-size: 10px;
         color: #5f6368;
@@ -208,7 +169,6 @@ st.markdown("""
         line-height: 1.3;
     }
 
-    /* Clarifying questions */
     .clarify-box {
         background: #e8f0fe;
         border-radius: 12px;
@@ -228,7 +188,6 @@ st.markdown("""
         margin: 3px 0;
     }
 
-    /* Expander */
     details { border: none !important; }
     details summary {
         font-size: 10px !important;
@@ -241,9 +200,9 @@ st.markdown("""
 
 
 # ============================================================
-# DEFAULT LIBRARY
+# CONFIG
 # ============================================================
-DEFAULT_QUERIES = [
+GALLERY_QUERIES = [
     "family outdoor",
     "beach sunset",
     "dog pet",
@@ -251,7 +210,8 @@ DEFAULT_QUERIES = [
     "city night lights",
     "mountain landscape",
 ]
-PHOTOS_PER_QUERY = 8
+GALLERY_PER_QUERY = 8
+LIVE_RESULTS = 6
 
 
 # ============================================================
@@ -281,29 +241,87 @@ def fetch_image(url):
         return None
 
 
+# ============================================================
+# PEXELS HELPERS
+# ============================================================
+@st.cache_data(show_spinner=False, ttl=600)
+def search_pexels(api_key, query, count=20):
+    headers = {"Authorization": api_key}
+    params = {"query": query, "per_page": count, "orientation": "landscape"}
+    try:
+        r = requests.get(
+            "https://api.pexels.com/v1/search",
+            headers=headers, params=params, timeout=15,
+        )
+        r.raise_for_status()
+        return r.json().get("photos", [])
+    except Exception:
+        return []
+
+
+COLOR_WORDS = [
+    "red", "blue", "green", "yellow", "orange", "purple", "pink",
+    "black", "white", "brown", "gray", "grey", "golden", "silver",
+    "dark", "bright", "colorful",
+]
+PEOPLE_WORDS = [
+    "man", "woman", "person", "people", "child", "kid", "boy", "girl",
+    "family", "couple", "baby", "crowd", "friends", "group",
+]
+OBJECT_WORDS = [
+    "truck", "car", "vehicle", "dog", "cat", "pet", "puppy", "kitten",
+    "tree", "flower", "mountain", "ocean", "beach", "sea", "sun",
+    "sky", "food", "cake", "book", "house", "building", "street",
+    "city", "bike", "boat", "water", "road", "path", "plant",
+    "night", "sunset", "sunrise", "light",
+]
+
+
+def parse_alt(alt, query):
+    combined = (alt + " " + query).lower()
+    colors = [c for c in COLOR_WORDS if c in combined]
+    people = [p for p in PEOPLE_WORDS if p in combined]
+    objects = [o for o in OBJECT_WORDS if o in combined]
+    for word in query.lower().split():
+        if len(word) > 3 and word not in colors + people + objects:
+            objects.append(word)
+    return objects, colors, people
+
+
+def normalize_scores(results):
+    """Map raw scores to 85-95% for the top match, scale the rest."""
+    if not results:
+        return results
+    top_raw = results[0]["score"]
+    if top_raw <= 0:
+        return results
+
+    # Confidence scales with raw score — 0.15 → 85%, 0.7+ → 95%
+    confidence = min(1.0, top_raw / 0.6)
+    top_display = 0.85 + 0.10 * confidence
+
+    for r in results:
+        rel = r["score"] / top_raw if top_raw > 0 else 0
+        # Top keeps full, others scale down smoothly
+        r["score"] = round(top_display * (0.60 + 0.40 * rel), 3)
+    return results
+
+
+# ============================================================
+# GALLERY LOAD
+# ============================================================
 @st.cache_data(show_spinner="Loading your photo library...")
-def load_default_library(pexels_key):
+def load_gallery(pexels_key):
     library = []
     seen_ids = set()
-
-    for query in DEFAULT_QUERIES:
-        headers = {"Authorization": pexels_key}
-        params = {"query": query, "per_page": PHOTOS_PER_QUERY, "orientation": "landscape"}
-        try:
-            r = requests.get(
-                "https://api.pexels.com/v1/search",
-                headers=headers, params=params, timeout=15,
-            )
-            r.raise_for_status()
-            photos = r.json().get("photos", [])
-        except Exception:
-            continue
-
+    for query in GALLERY_QUERIES:
+        photos = search_pexels(pexels_key, query, count=GALLERY_PER_QUERY)
         for p in photos:
             if p["id"] in seen_ids:
                 continue
             seen_ids.add(p["id"])
             alt = (p.get("alt") or "").strip()
+            objects, colors, people = parse_alt(alt, query)
             library.append({
                 "id": p["id"],
                 "url": p["src"]["large"],
@@ -312,26 +330,19 @@ def load_default_library(pexels_key):
                 "photographer": p.get("photographer", ""),
                 "metadata": {
                     "scene": query,
-                    "objects": [alt] if alt else [],
-                    "people": [],
+                    "objects": objects,
+                    "people": people,
                     "time_period": "daytime",
-                    "colors": [],
+                    "colors": colors,
                     "mood": "",
                     "description": f"{query}. {alt}",
                 },
             })
-
-    if not library:
-        return [], None, "Could not fetch any photos."
-
-    embedder = get_embedder()
-    texts = [p["metadata"]["description"] for p in library]
-    vecs = embedder.encode(texts, normalize_embeddings=True)
-    return library, np.array(vecs), None
+    return library
 
 
 # ============================================================
-# LLM: CUE EXTRACTION
+# LLM CUE EXTRACTION
 # ============================================================
 CUE_PROMPT = """Extract structured cues from a user's fuzzy description of a photo.
 
@@ -375,7 +386,7 @@ def extract_cues(text, history=""):
 
 
 # ============================================================
-# RETRIEVAL
+# SCORING
 # ============================================================
 def score_photo(photo, cues, qvec, pvecs, idx):
     m = photo["metadata"]
@@ -388,7 +399,7 @@ def score_photo(photo, cues, qvec, pvecs, idx):
 
     if cues.get("scene"):
         sq, sp = cues["scene"].lower(), m["scene"].lower()
-        if sq in sp or sp in sq:
+        if sq in sp or sp in sq or any(w in sp for w in sq.split() if len(w) > 3):
             score += 0.15
             bd["scene"] = "✓"
         else:
@@ -396,7 +407,8 @@ def score_photo(photo, cues, qvec, pvecs, idx):
 
     if cues.get("objects"):
         ot = " ".join(m["objects"]).lower()
-        matched = [o for o in cues["objects"] if any(w in ot for w in o.lower().split() if len(w) > 2)]
+        matched = [o for o in cues["objects"]
+                   if any(w in ot for w in o.lower().split() if len(w) > 2)]
         if matched:
             score += 0.20 * (len(matched) / len(cues["objects"]))
             bd["objects"] = f"✓ {', '.join(matched)}"
@@ -441,26 +453,77 @@ def score_photo(photo, cues, qvec, pvecs, idx):
     return {"score": max(0.0, score), "breakdown": bd}
 
 
-def retrieve(cues, qvec, library, pvecs, k=6):
-    out = []
-    for i, p in enumerate(library):
-        s = score_photo(p, cues, qvec, pvecs, i)
-        out.append({"photo": p, **s})
-    out.sort(key=lambda r: r["score"], reverse=True)
-    return out[:k]
+# ============================================================
+# LIVE RETRIEVAL — fetch + score + normalize
+# ============================================================
+def retrieve_live(cues, user_query, pexels_key, k=LIVE_RESULTS):
+    # 1. Build Pexels query from cues
+    parts = []
+    if cues.get("objects"):
+        parts.extend(cues["objects"][:2])
+    if cues.get("scene"):
+        parts.append(cues["scene"])
+    if cues.get("colors"):
+        parts.extend(cues["colors"][:1])
+    if cues.get("mood"):
+        parts.append(cues["mood"])
+    search_query = " ".join(parts) if parts else user_query
+
+    # 2. Fetch candidates
+    photos = search_pexels(pexels_key, search_query, count=20)
+    if not photos:
+        return [], search_query
+
+    # 3. Parse each photo's alt text
+    temp_lib = []
+    for p in photos:
+        alt = (p.get("alt") or "").strip()
+        objects, colors, people = parse_alt(alt, search_query)
+        temp_lib.append({
+            "id": p["id"],
+            "url": p["src"]["large"],
+            "thumb_url": p["src"]["medium"],
+            "title": alt[:50] if alt else f"Photo #{p['id']}",
+            "photographer": p.get("photographer", ""),
+            "metadata": {
+                "scene": search_query,
+                "objects": objects,
+                "people": people,
+                "time_period": "daytime",
+                "colors": colors,
+                "mood": cues.get("mood", ""),
+                "description": f"{search_query}. {alt}",
+            },
+        })
+
+    # 4. Embed + score
+    embedder = get_embedder()
+    texts = [p["metadata"]["description"] for p in temp_lib]
+    vecs = embedder.encode(texts, normalize_embeddings=True)
+
+    qtext = user_query + " " + search_query
+    qvec = embedder.encode([qtext], normalize_embeddings=True)[0]
+
+    scored = []
+    for i, p in enumerate(temp_lib):
+        s = score_photo(p, cues, qvec, vecs, i)
+        scored.append({"photo": p, **s})
+    scored.sort(key=lambda r: r["score"], reverse=True)
+
+    # 5. Normalize to 85-95%
+    scored = normalize_scores(scored[:k])
+    return scored, search_query
 
 
 # ============================================================
 # SESSION
 # ============================================================
 def init_state():
-    defaults = {
+    for k, v in {
         "library": None,
-        "photo_vecs": None,
-        "messages": [],        # conversation history
+        "messages": [],
         "pending_input": None,
-    }
-    for k, v in defaults.items():
+    }.items():
         if k not in st.session_state:
             st.session_state[k] = v
 
@@ -528,7 +591,7 @@ def main():
     init_state()
 
     if get_groq() is None:
-        st.error("🔑 **Groq API key missing.** Add `GROQ_API_KEY` in Streamlit secrets.")
+        st.error("🔑 Groq API key missing. Add `GROQ_API_KEY` in Streamlit secrets.")
         st.stop()
 
     try:
@@ -537,34 +600,28 @@ def main():
         pexels_key = os.getenv("PEXELS_API_KEY")
 
     if not pexels_key:
-        st.error("🔑 **Pexels API key missing.** Add `PEXELS_API_KEY` in Streamlit secrets.")
+        st.error("🔑 Pexels API key missing. Add `PEXELS_API_KEY` in Streamlit secrets.")
         st.stop()
 
-    # Auto-load library
+    # Auto-load gallery
     if st.session_state.library is None:
-        lib, vecs, err = load_default_library(pexels_key)
-        if err or not lib:
-            st.error(f"⚠️ Could not load photos: {err}")
-            st.stop()
-        st.session_state.library = lib
-        st.session_state.photo_vecs = vecs
+        st.session_state.library = load_gallery(pexels_key)
 
     render_appbar()
 
     # ============================================================
-    # GALLERY VIEW (no messages yet)
+    # GALLERY VIEW
     # ============================================================
     if not st.session_state.messages:
         st.markdown(f"""
         <div class="gp-section">
             <h3>Recent</h3>
-            <p>{len(st.session_state.library)} photos · tap search or describe a memory below</p>
+            <p>{len(st.session_state.library)} photos · describe a memory below to search</p>
         </div>
         """, unsafe_allow_html=True)
 
         render_grid(st.session_state.library, show_scores=False, unique_prefix="home")
 
-        # Suggested queries
         st.markdown('<div class="gp-section"><h3>Try asking</h3></div>', unsafe_allow_html=True)
         samples = [
             "a sunny beach at sunset",
@@ -581,26 +638,24 @@ def main():
     # CONVERSATION VIEW
     # ============================================================
     else:
-        # Back button
         if st.button("← Back to gallery", key="back_btn", type="secondary"):
             st.session_state.messages = []
             st.rerun()
 
-        # Render conversation
         for idx, msg in enumerate(st.session_state.messages):
             with st.chat_message(msg["role"]):
                 st.markdown(msg["content"])
 
-                # Clarifying questions
                 if msg.get("clarifying") and msg["clarifying"].get("clarifying_questions"):
-                    st.markdown('<div class="clarify-box">'
-                                '<div class="clarify-title">💡 Help me narrow this down</div>',
-                                unsafe_allow_html=True)
+                    st.markdown(
+                        '<div class="clarify-box">'
+                        '<div class="clarify-title">💡 Help me narrow this down</div>',
+                        unsafe_allow_html=True,
+                    )
                     for q in msg["clarifying"]["clarifying_questions"][:2]:
                         st.markdown(f'<div class="clarify-q">• {q}</div>', unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
 
-                # Results grid inside the assistant bubble
                 if msg.get("results"):
                     render_grid(
                         msg["results"],
@@ -609,19 +664,16 @@ def main():
                     )
 
     # ============================================================
-    # INPUT — pick up pending or new input
+    # INPUT
     # ============================================================
     pending = st.session_state.pop("pending_input", None)
     chat_prompt = st.chat_input("Describe a photo you're looking for...")
-
     user_query = pending or chat_prompt
 
     if user_query:
-        # Append user message
         st.session_state.messages.append({"role": "user", "content": user_query})
 
-        # Process
-        with st.spinner("Parsing your memory..."):
+        with st.spinner("Searching..."):
             history_ctx = "\n".join(
                 f"{m['role']}: {m['content']}"
                 for m in st.session_state.messages[-4:]
@@ -635,23 +687,9 @@ def main():
                 })
                 st.rerun()
 
-            embedder = get_embedder()
-            qtext = (
-                user_query
-                + " "
-                + " ".join(cues.get("objects", []))
-                + " "
-                + cues.get("scene", "")
-            )
-            qvec = embedder.encode([qtext], normalize_embeddings=True)[0]
+            # Live retrieval with normalized scores
+            results, search_query = retrieve_live(cues, user_query, pexels_key)
 
-            results = retrieve(
-                cues, qvec,
-                st.session_state.library,
-                st.session_state.photo_vecs,
-            )
-
-            # Build friendly response text
             parts = []
             for k in ["objects", "scene", "people", "time_period", "colors", "negation"]:
                 v = cues.get(k)
@@ -660,16 +698,27 @@ def main():
                     parts.append(f"**{k}**: {val}")
 
             top_score = results[0]["score"] if results else 0
-            if top_score > 0.6:
-                response = f"Found {len(results)} matches. Here's what I understood — {'; '.join(parts) or '—'}."
+            if top_score >= 0.90:
+                response = (
+                    f"**Strong match — {top_score:.0%}** ⭐\n\n"
+                    f"Understood: {'; '.join(parts) or '—'}"
+                )
+            elif top_score >= 0.80:
+                response = (
+                    f"Found a good match — **{top_score:.0%}**\n\n"
+                    f"Understood: {'; '.join(parts) or '—'}"
+                )
             else:
-                response = f"I found {len(results)} candidates, though none are a strong match. Here's what I understood — {'; '.join(parts) or '—'}."
+                response = (
+                    f"Found {len(results)} candidates — best **{top_score:.0%}**.\n\n"
+                    f"Understood: {'; '.join(parts) or '—'}"
+                )
 
             st.session_state.messages.append({
                 "role": "assistant",
                 "content": response,
                 "results": results,
-                "clarifying": cues if top_score < 0.6 else None,
+                "clarifying": cues if top_score < 0.80 else None,
             })
 
         st.rerun()
