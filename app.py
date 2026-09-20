@@ -16,7 +16,7 @@ st.set_page_config(
     page_title="Episodic Photos",
     page_icon="📸",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="expanded",
 )
 
 # ============================================================
@@ -262,7 +262,7 @@ def fetch_image(url):
 
 
 @st.cache_data(show_spinner="Loading photos from Pexels...")
-def load_pexels_library(api_key, query, embedder, count=40):
+def load_pexels_library(api_key, query, embedder, count=20):
     headers = {"Authorization": api_key}
     params = {"query": query, "per_page": min(count, 80), "orientation": "landscape"}
     try:
