@@ -32,6 +32,7 @@ EXAMPLES = [
     "Me and friends at a beach at sunset",
     "School friends in uniform on the school ground",
     "Me alone at a café in a red t-shirt",
+    "The medicine strip I photographed when I was sick",
 ]
 
 # ============================================================
@@ -41,10 +42,21 @@ st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Roboto+Flex:opsz,wght@8..144,400;8..144,500;8..144,600&display=swap');
 #MainMenu, header, footer, [data-testid="stToolbar"], [data-testid="stDecoration"] {display:none !important;}
-.stApp {background:#E8EAED;}
+.stApp, [data-testid="stAppViewContainer"] {background:#FAF9FD !important; color:#1A1B1E !important;}
 [data-testid="stMainBlockContainer"], .main .block-container {
-  max-width:430px !important; padding:14px 14px 96px !important; margin:16px auto !important;
-  background:#FAF9FD; border-radius:28px; box-shadow:0 4px 24px rgba(0,0,0,.12); min-height:880px;}
+  max-width:430px !important; padding:14px 14px 120px !important; margin:0 auto !important;}
+.stMarkdown, .stMarkdown p, label, summary, [data-testid="stExpander"] *, [data-testid="stCaptionContainer"] {color:#1A1B1E !important;}
+[data-testid="stBottom"], [data-testid="stBottom"] > div {background:#FAF9FD !important;}
+[data-testid="stBottomBlockContainer"] {max-width:430px !important; margin:0 auto !important; padding:10px 14px 16px !important;}
+[data-testid="stChatInput"] {background:#F1F3F4 !important; border:1px solid #DADCE0 !important; border-radius:28px !important;}
+[data-testid="stChatInput"] textarea {color:#1A1B1E !important; background:transparent !important;}
+button[kind="secondary"], [data-testid="stBaseButton-secondary"], [data-testid="stBaseButton-pills"] {
+  background:#FFFFFF !important; color:#1A73E8 !important; border:1px solid #DADCE0 !important;}
+[data-testid="stBaseButton-pillsActive"] {background:#D3E3FD !important; color:#041E49 !important; border:0 !important;}
+.why {display:flex; flex-wrap:wrap; gap:4px; margin:2px 0 6px;}
+.why span {font-size:14px; border-radius:8px; padding:2px 8px;}
+.why .ok {background:#C4EED0; color:#0D652D;} .why .no {background:#FFDAD6; color:#93000A;} .why .na {background:#E3E2E6; color:#414754;}
+.hint {font-size:14px; color:#5F6368; margin:-2px 0 6px;}
 html, body, .stMarkdown, button, input, textarea, p, span, div {font-family:'Roboto Flex', Roboto, Arial, sans-serif;}
 .appbar {display:flex; align-items:center; gap:10px; padding:4px 2px 10px; font-size:22px; color:#1A1B1E;}
 .dots {display:grid; grid-template-columns:repeat(2,7px); gap:2px;}
@@ -161,6 +173,7 @@ SYN = {
     "mountain": ["mountain", "hill", "peak"], "trip": ["travel", "trip", "tourist", "vacation"],
     "t-shirt": ["t-shirt", "tshirt", "shirt", "top", "tee"], "tshirt": ["t-shirt", "shirt", "top"],
     "shirt": ["shirt", "t-shirt", "top"], "dress": ["dress", "gown", "saree"], "uniform": ["uniform", "student"],
+    "medicine": ["medicine", "pill", "pills", "tablet", "capsule", "medication", "drug"],
     "sunset": ["sunset", "dusk", "golden hour", "evening"], "hiking": ["hiking", "hike", "trek", "trail"],
 }
 PEOPLE = {
@@ -229,6 +242,30 @@ def label(score):
 # ============================================================
 # RETRIEVAL
 # ============================================================
+DAY = ["day", "sunny", "daylight", "morning", "afternoon", "bright"]
+NIGHT = ["night", "evening", "sunset", "dusk", "dark", "lights"]
+
+
+def split_question(ranked, c):
+    """Ask about the attribute that splits the closest candidates most evenly (grounded, no extra LLM call)."""
+    top = [st.session_state.pool[r["id"]]["alt"].lower() for r in ranked[:10]]
+    known_group = c["alone"] or len(c["people"]) > 1 or any(p.lower() in ("friends", "family") for p in c["people"])
+    options = []
+    if not c["setting"]:
+        options.append(("Was it indoors or outdoors?", "Outdoors", OUTDOOR, "Indoors", INDOOR))
+    if not known_group:
+        options.append(("Were you alone or with others?", "With others", GROUP, "Just me", None))
+    if not c["time_period"]:
+        options.append(("Was it day or evening?", "Daytime", DAY, "Evening", NIGHT))
+    best, best_bal = None, 1
+    for text, a_lbl, a_words, b_lbl, b_words in options:
+        a = sum(any(w in t for w in a_words) for t in top)
+        b = sum((any(w in t for w in b_words) if b_words else not any(w in t for w in a_words)) for t in top)
+        if min(a, b) > best_bal:
+            best, best_bal = {"text": text, "options": [a_lbl, b_lbl, "Not sure"], "grounded": True}, min(a, b)
+    return best
+
+
 def build_query(c):
     parts = []
     if c["people"]:
@@ -296,7 +333,9 @@ def run_turn(msg, pexels_key):
     last_q = s.question["text"] if s.question else ""
     s.clues, s.question, s.rephrases = extract_clues(s.clues, msg, last_q)
     add_to_pool(search_pexels(pexels_key, build_query(s.clues)))
-    apply_results(rank(s.clues))
+    ranked = rank(s.clues)
+    apply_results(ranked)
+    s.question = split_question(ranked, s.clues) or s.question
     s.turns.append(msg)
     s.clue_ver += 1
 
@@ -391,22 +430,29 @@ def screen_home(pexels_key):
                     unsafe_allow_html=True)
 
 
+def why_chips(checks):
+    out = []
+    for lbl, ok in checks:
+        short = lbl.split(": ", 1)[-1].replace(" (demo photos have no date)", "")
+        cls, sym = ("ok", "✓") if ok else (("no", "✗") if ok is False else ("na", "–"))
+        out.append(f'<span class="{cls}">{sym} {short}</span>')
+    return '<div class="why">' + "".join(out) + "</div>"
+
+
 def photo_card(r, pexels_key, i):
     s = st.session_state
     p = s.pool[r["id"]]
     cls, text = label(r["score"])
     st.markdown(f'<div class="ph"><img src="{p["thumb"]}" alt="{p["alt"][:80]}"><span class="badge {cls}">'
                 f'{text} · {r["score"]:.0%}</span></div>', unsafe_allow_html=True)
-    with st.expander("Why this photo"):
-        for lbl, ok in r["checks"]:
-            st.markdown(f"{'✅' if ok else ('❌' if ok is False else '➖')} {lbl}")
+    st.markdown(why_chips(r["checks"]), unsafe_allow_html=True)
     if st.button("✓ This is it", key=f"pick_{i}_{r['id']}", type="primary", use_container_width=True):
         s.found = r
         s.screen = "found"
         s.log.append({"turns": len(s.turns), "seconds": round(time.time() - (s.start or time.time())),
                       "score": round(r["score"], 2), "query": " | ".join(s.user_msgs)})
         st.rerun()
-    if st.button("Find similar photos", key=f"sim_{i}_{r['id']}", use_container_width=True):
+    if st.button("Similar photos", key=f"sim_{i}_{r['id']}", use_container_width=True):
         with st.spinner("Finding similar photos…"):
             find_similar(r["id"], pexels_key)
         st.rerun()
@@ -462,20 +508,22 @@ def screen_chat(pexels_key):
                     s.pending = rp
                     st.rerun()
 
-        st.markdown('<div class="sec">Best candidates<small>sorted by match</small></div>', unsafe_allow_html=True)
-        cols = st.columns(2)
-        for i, r in enumerate(s.results):
-            with cols[i % 2]:
-                photo_card(r, pexels_key, i)
-
         if s.question and s.question.get("options"):
-            st.markdown(f'<div class="card"><div class="meta">HELP NARROW IT DOWN</div><h4>{s.question["text"]}</h4></div>',
-                        unsafe_allow_html=True)
+            why = ("Picked to split your closest matches" if s.question.get("grounded")
+                   else "Answer to narrow the search")
+            st.markdown(f'<div class="card"><div class="meta">HELP NARROW IT DOWN</div><h4>{s.question["text"]}</h4>'
+                        f'<div class="meta">{why}</div></div>', unsafe_allow_html=True)
             qcols = st.columns(len(s.question["options"]))
             for k, opt in enumerate(s.question["options"]):
                 if qcols[k].button(opt, key=f"q_{s.clue_ver}_{k}", use_container_width=True):
                     s.pending = opt
                     st.rerun()
+
+        st.markdown('<div class="sec">Best candidates<small>sorted by match</small></div>', unsafe_allow_html=True)
+        cols = st.columns(2)
+        for i, r in enumerate(s.results):
+            with cols[i % 2]:
+                photo_card(r, pexels_key, i)
 
     msg = st.chat_input("Add another detail… (who, where, what they wore)" if s.turns
                         else "Describe what you remember…")
@@ -496,9 +544,7 @@ def screen_found():
     st.markdown(f'<div class="hero"><img src="{p["large"]}" alt="{p["alt"][:80]}"></div>'
                 f'<div class="found">✓ Found it! Saved to Favourites<br><span style="font-size:14px;opacity:.85">'
                 f'{len(s.turns)} turn(s) · {secs}s</span></div>', unsafe_allow_html=True)
-    st.markdown("**Why this photo**")
-    for lbl, ok in r["checks"]:
-        st.markdown(f"{'✅' if ok else ('❌' if ok is False else '➖')} {lbl}")
+    st.markdown('<div class="sec">Why this photo</div>' + why_chips(r["checks"]), unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     if c1.button("← Not it, go back", use_container_width=True):
         s.screen = "chat"
