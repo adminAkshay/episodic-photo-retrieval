@@ -1,8 +1,13 @@
 """Describe it: conversational retrieval for vaguely remembered photos (Google Photos-style MVP)."""
+import base64
+import calendar
+import datetime as dt
 import json
 import os
 import re
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from urllib.parse import urlencode
 
 import numpy as np
 import requests
@@ -28,6 +33,12 @@ GALLERY = [  # (section title, subtitle, pexels query)
     ("March 2024", "Trip", "mountain hiking"),
     ("February 2024", "", "birthday party"),
 ]
+# Google Photos Picker (optional: app falls back to demo photos if these secrets are missing)
+SCOPES = ("openid https://www.googleapis.com/auth/userinfo.email "
+          "https://www.googleapis.com/auth/photospicker.mediaitems.readonly")
+PICKER = "https://photospicker.googleapis.com/v1"
+VISION_MODEL = os.getenv("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
+MAX_PICK = 100
 EXAMPLES = [
     "Me and friends at a beach at sunset",
     "School friends in uniform on the school ground",
@@ -56,6 +67,9 @@ button[kind="secondary"], [data-testid="stBaseButton-secondary"], [data-testid="
 .why {display:flex; flex-wrap:wrap; gap:4px; margin:2px 0 6px;}
 .why span {font-size:14px; border-radius:8px; padding:2px 8px;}
 .why .ok {background:#C4EED0; color:#0D652D;} .why .no {background:#FFDAD6; color:#93000A;} .why .na {background:#E3E2E6; color:#414754;}
+.gbtn {display:block; text-align:center; background:#1A73E8; color:#FFFFFF !important; border-radius:999px;
+  padding:10px 16px; text-decoration:none !important; font-weight:500; font-size:15px; margin:8px 0;}
+.gbtn.out {background:#FFFFFF; color:#1A73E8 !important; border:1px solid #DADCE0;}
 .hint {font-size:14px; color:#5F6368; margin:-2px 0 6px;}
 html, body, .stMarkdown, button, input, textarea, p, span, div {font-family:'Roboto Flex', Roboto, Arial, sans-serif;}
 .appbar {display:flex; align-items:center; gap:10px; padding:4px 2px 10px; font-size:22px; color:#1A1B1E;}
@@ -198,6 +212,32 @@ def hit(phrase, text, mode="all"):
     return all(found) if mode == "all" else any(found)
 
 
+MONTHS = {m.lower(): i for i, m in enumerate(calendar.month_name) if m}
+SEASONS = {"summer": [3, 4, 5, 6], "monsoon": [7, 8, 9], "rainy": [7, 8, 9], "winter": [11, 12, 1, 2],
+           "diwali": [10, 11], "christmas": [12], "new year": [12, 1]}
+
+
+def time_match(tp, date_str):
+    """True/False if the clue can be checked against the photo's real date, None if not checkable."""
+    if not date_str:
+        return None
+    try:
+        d = dt.datetime.fromisoformat(date_str.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    t, now, checks = tp.lower(), dt.datetime.now(), []
+    years = [int(y) for y in re.findall(r"\b(?:19|20)\d{2}\b", t)]
+    if years:
+        checks.append(d.year in years)
+    if "last year" in t:
+        checks.append(d.year == now.year - 1)
+    if "this year" in t:
+        checks.append(d.year == now.year)
+    checks += [d.month == i for m, i in MONTHS.items() if m in t]
+    checks += [d.month in ms for n, ms in SEASONS.items() if n in t]
+    return all(checks) if checks else None
+
+
 def score_photo(photo, clues, sem):
     t = photo["alt"].lower()
     earned = 0.18 * min(1.0, max(0.0, (sem - 0.15) / 0.45))
@@ -227,7 +267,14 @@ def score_photo(photo, clues, sem):
     for o in clues["objects"]:
         add(f"Object: {o}", hit(o, t, "all"), 0.10 / len(clues["objects"]))
     if clues["time_period"]:
-        checks.append((f"When: {clues['time_period']} (demo photos have no date)", None))
+        tp = clues["time_period"]
+        tm = time_match(tp, photo.get("date"))
+        if tm is not None:
+            add(f"When: {tp}", tm, 0.10)
+        elif photo.get("date") or hit(tp, t, "any"):
+            add(f"When: {tp}", hit(tp, t, "any"), 0.05)
+        else:
+            checks.append((f"When: {tp} (demo photos have no date)", None))
     return earned / possible, checks
 
 
@@ -332,7 +379,8 @@ def run_turn(msg, pexels_key):
     s.user_msgs.append(msg)
     last_q = s.question["text"] if s.question else ""
     s.clues, s.question, s.rephrases = extract_clues(s.clues, msg, last_q)
-    add_to_pool(search_pexels(pexels_key, build_query(s.clues)))
+    if s.source == "demo":
+        add_to_pool(search_pexels(pexels_key, build_query(s.clues)))
     ranked = rank(s.clues)
     apply_results(ranked)
     s.question = split_question(ranked, s.clues) or s.question
@@ -344,7 +392,8 @@ def find_similar(pid, pexels_key):
     s = st.session_state
     s.history.append(snapshot())
     words = [w for w in re.findall(r"[a-z]+", s.pool[pid]["alt"].lower()) if w not in STOP][:6]
-    add_to_pool(search_pexels(pexels_key, " ".join(words)))
+    if s.source == "demo":
+        add_to_pool(search_pexels(pexels_key, " ".join(words)))
     apply_results(rank(s.clues, anchor_id=pid))
     s.turns.append("Find similar to the photo you picked")
     s.question = None
@@ -366,7 +415,8 @@ def init_state():
     defaults = {"screen": "home", "clues": dict(EMPTY), "results": [], "question": None, "rephrases": [],
                 "matching": 0, "prev_matching": 0, "low_conf": False, "history": [], "turns": [],
                 "user_msgs": [], "pool": {}, "emb": {}, "start": None, "found": None, "clue_ver": 0,
-                "pending": None, "log": []}
+                "pending": None, "log": [], "source": "demo", "library": [],
+                "g_token": None, "g_session": None, "g_error": None}
     for k, v in defaults.items():
         if k not in st.session_state:
             st.session_state[k] = v
@@ -377,6 +427,165 @@ def reset_search():
               "history", "turns", "user_msgs", "start", "found"):
         del st.session_state[k]
     init_state()
+
+
+# ============================================================
+# GOOGLE PHOTOS PICKER
+# ============================================================
+def google_ready():
+    return all(secret(k) for k in ("GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI"))
+
+
+def auth_url():
+    return "https://accounts.google.com/o/oauth2/v2/auth?" + urlencode({
+        "client_id": secret("GOOGLE_CLIENT_ID"), "redirect_uri": secret("GOOGLE_REDIRECT_URI"),
+        "response_type": "code", "scope": SCOPES, "access_type": "online", "prompt": "consent"})
+
+
+def handle_oauth_callback():
+    qp, s = st.query_params, st.session_state
+    if "code" in qp:
+        r = requests.post("https://oauth2.googleapis.com/token", timeout=15, data={
+            "code": qp["code"], "client_id": secret("GOOGLE_CLIENT_ID"),
+            "client_secret": secret("GOOGLE_CLIENT_SECRET"),
+            "redirect_uri": secret("GOOGLE_REDIRECT_URI"), "grant_type": "authorization_code"})
+        if r.ok:
+            s.g_token = r.json()["access_token"]
+        else:
+            s.g_error = "Google sign-in failed. Check the redirect URI and test users."
+        st.query_params.clear()
+        st.rerun()
+    if "error" in qp:
+        s.g_error = "Google sign-in was cancelled."
+        st.query_params.clear()
+
+
+def g_headers():
+    return {"Authorization": f"Bearer {st.session_state.g_token}"}
+
+
+def list_picked(sid):
+    items, token = [], None
+    while True:
+        params = {"sessionId": sid, "pageSize": 100, **({"pageToken": token} if token else {})}
+        r = requests.get(f"{PICKER}/mediaItems", headers=g_headers(), params=params, timeout=20)
+        r.raise_for_status()
+        data = r.json()
+        items += data.get("mediaItems", [])
+        token = data.get("nextPageToken")
+        if not token or len(items) >= MAX_PICK:
+            return items[:MAX_PICK]
+
+
+CAPTION_PROMPT = ("Describe this photo in one sentence (max 40 words) so it can be found by search later. "
+                  "Include: who is in it (man, woman, child, group of friends, family, or no people) and how many; "
+                  "clothing with colours; the place (cafe, beach, school, home, street...) and whether indoors or "
+                  "outdoors; the activity; notable objects; time of day; any readable text such as a medicine or "
+                  "brand name. Plain text only.")
+
+
+def process_item(item, token, client):
+    mf = item.get("mediaFile") or {}
+    if item.get("type") != "PHOTO" or not mf.get("baseUrl"):
+        return None
+    img = requests.get(mf["baseUrl"] + "=w512-h512", headers={"Authorization": f"Bearer {token}"}, timeout=20)
+    if not img.ok:
+        return None
+    uri = "data:image/jpeg;base64," + base64.b64encode(img.content).decode()
+    caption = ""
+    for attempt in range(3):  # retry on rate limits
+        try:
+            r = client.chat.completions.create(
+                model=VISION_MODEL, temperature=0.1, max_tokens=120,
+                messages=[{"role": "user", "content": [{"type": "text", "text": CAPTION_PROMPT},
+                                                       {"type": "image_url", "image_url": {"url": uri}}]}])
+            caption = r.choices[0].message.content.strip()
+            break
+        except Exception:
+            time.sleep(3 * (attempt + 1))
+    return {"id": item["id"], "thumb": uri, "large": uri,
+            "alt": caption or mf.get("filename", "photo"), "date": item.get("createTime", "")}
+
+
+def import_picked(sid):
+    s = st.session_state
+    items = list_picked(sid)
+    client, token, out = get_groq(), s.g_token, []
+    bar = st.progress(0.0, text="Understanding your photos…")
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        futures = [ex.submit(process_item, it, token, client) for it in items]
+        for k, f in enumerate(as_completed(futures)):
+            res = f.result()
+            if res:
+                out.append(res)
+            bar.progress((k + 1) / len(futures), text=f"Understanding your photos… {k + 1}/{len(futures)}")
+    requests.delete(f"{PICKER}/sessions/{sid}", headers=g_headers(), timeout=10)
+    s.pool, s.emb = {}, {}
+    add_to_pool(out)
+    s.library = sorted(out, key=lambda p: p["date"], reverse=True)
+    s.source, s.g_session = "google", None
+    reset_search()
+
+
+def picker_panel():
+    s = st.session_state
+    if s.g_error:
+        st.error(s.g_error)
+        s.g_error = None
+    if s.source == "google":
+        c1, c2 = st.columns([3, 2])
+        c1.markdown(f'<div class="meta" style="padding-top:10px">📷 Searching your Google Photos · '
+                    f'{len(s.library)} photos</div>', unsafe_allow_html=True)
+        if c2.button("Use demo photos", use_container_width=True):
+            s.source, s.library, s.pool, s.emb, s.g_token = "demo", [], {}, {}, None
+            reset_search()
+            st.rerun()
+        return
+    if not s.g_token:
+        st.markdown(f'<div class="card"><h4>Search your own photos</h4><div class="meta">Connect Google Photos and pick '
+                    f'up to {MAX_PICK} photos. They are processed for this session only and never stored. Testing mode: '
+                    f'tap <b>Continue</b> on the “unverified app” screen.</div>'
+                    f'<a class="gbtn" href="{auth_url()}" target="_top">Connect Google Photos</a></div>',
+                    unsafe_allow_html=True)
+        return
+    if not s.g_session:
+        if st.button("Choose photos from Google Photos", type="primary", use_container_width=True):
+            r = requests.post(f"{PICKER}/sessions", headers=g_headers(), json={}, timeout=15)
+            if r.ok:
+                s.g_session = r.json()
+            else:
+                s.g_token, s.g_error = None, "Google session expired. Please connect again."
+            st.rerun()
+        return
+    st.markdown(f'<div class="card"><h4>Pick your photos</h4><div class="meta">1. Open the picker and select up to '
+                f'{MAX_PICK} photos (an album or a few months works well).<br>2. Tap <b>Done</b>, then come back to '
+                f'this tab.</div><a class="gbtn out" href="{s.g_session["pickerUri"]}/autoclose" target="_blank">'
+                f'Open Google Photos picker ↗</a></div>', unsafe_allow_html=True)
+    if st.button("I've picked my photos", type="primary", use_container_width=True):
+        with st.spinner("Waiting for your selection…"):
+            ready = False
+            for _ in range(10):
+                r = requests.get(f"{PICKER}/sessions/{s.g_session['id']}", headers=g_headers(), timeout=15)
+                if r.ok and r.json().get("mediaItemsSet"):
+                    ready = True
+                    break
+                time.sleep(3)
+        if ready:
+            import_picked(s.g_session["id"])
+            st.rerun()
+        else:
+            st.warning("Not finished yet. Complete your selection in the picker tab, then tap again.")
+
+
+def library_sections():
+    groups = {}
+    for p in st.session_state.library:
+        try:
+            key = dt.datetime.fromisoformat(p["date"].replace("Z", "+00:00")).strftime("%B %Y")
+        except ValueError:
+            key = "Undated"
+        groups.setdefault(key, []).append(p)
+    return groups
 
 
 # ============================================================
@@ -418,9 +627,17 @@ def screen_home(pexels_key):
     appbar("Google Photos")
     st.markdown('<div class="chiprow">' + "".join(f'<span class="chip">{x}</span>' for x in
                 ["♡ Favorites", "▶ Videos", "⛰ Trips", "▭ Screenshots"]) + "</div>", unsafe_allow_html=True)
+    if google_ready():
+        picker_panel()
     if st.button("✨ Can't find a photo? Describe it", type="primary", use_container_width=True):
         st.session_state.screen = "chat"
         st.rerun()
+    if st.session_state.source == "google":
+        for title, photos in library_sections().items():
+            imgs = "".join(f'<img src="{p["thumb"]}" loading="lazy" alt="">' for p in photos[:12])
+            st.markdown(f'<div class="sec">{title}<small>{len(photos)} items</small></div>'
+                        f'<div class="grid3">{imgs}</div>', unsafe_allow_html=True)
+        return
     for title, sub, q in GALLERY:
         photos = search_pexels(pexels_key, q, 9)[:6]
         if not photos:
@@ -445,6 +662,8 @@ def photo_card(r, pexels_key, i):
     cls, text = label(r["score"])
     st.markdown(f'<div class="ph"><img src="{p["thumb"]}" alt="{p["alt"][:80]}"><span class="badge {cls}">'
                 f'{text} · {r["score"]:.0%}</span></div>', unsafe_allow_html=True)
+    if p.get("date"):
+        st.markdown(f'<div class="hint">{p["date"][:10]}</div>', unsafe_allow_html=True)
     st.markdown(why_chips(r["checks"]), unsafe_allow_html=True)
     if st.button("✓ This is it", key=f"pick_{i}_{r['id']}", type="primary", use_container_width=True):
         s.found = r
@@ -561,6 +780,8 @@ def screen_found():
 
 def main():
     init_state()
+    if google_ready():
+        handle_oauth_callback()
     pexels_key = secret("PEXELS_API_KEY")
     if get_groq() is None or not pexels_key:
         st.error("Add GROQ_API_KEY and PEXELS_API_KEY in Streamlit secrets.")
